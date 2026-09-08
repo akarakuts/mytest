@@ -76,3 +76,112 @@ impl ServiceConfig {
         format!("http://{}:{}/healthz", self.base_ip, svc.port)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_has_27_services() {
+        let cfg = ServiceConfig::default();
+        assert_eq!(cfg.services.len(), 27);
+    }
+
+    #[test]
+    fn default_base_ip() {
+        let cfg = ServiceConfig::default();
+        assert_eq!(cfg.base_ip, "192.168.1.66");
+    }
+
+    #[test]
+    fn default_crowd_url() {
+        let cfg = ServiceConfig::default();
+        assert_eq!(cfg.crowd_url, "http://192.168.1.66:8080");
+    }
+
+    #[test]
+    fn by_name_finds_existing() {
+        let cfg = ServiceConfig::default();
+        let svc = cfg.by_name("myjira").unwrap();
+        assert_eq!(svc.name, "myjira");
+        assert_eq!(svc.port, 3001);
+        assert_eq!(svc.domain, "jira.home.local");
+    }
+
+    #[test]
+    fn by_name_returns_none_for_missing() {
+        let cfg = ServiceConfig::default();
+        assert!(cfg.by_name("nonexistent").is_none());
+    }
+
+    #[test]
+    fn by_name_finds_all_services() {
+        let cfg = ServiceConfig::default();
+        for svc in &cfg.services {
+            let found = cfg.by_name(svc.name).unwrap();
+            assert_eq!(found.port, svc.port);
+        }
+    }
+
+    #[test]
+    fn base_url_https_format() {
+        let cfg = ServiceConfig::default();
+        let svc = cfg.by_name("myjira").unwrap();
+        assert_eq!(cfg.base_url_https(svc), "https://jira.home.local");
+    }
+
+    #[test]
+    fn base_url_http_format() {
+        let cfg = ServiceConfig::default();
+        let svc = cfg.by_name("myjira").unwrap();
+        assert_eq!(cfg.base_url_http(svc), "http://192.168.1.66:3001");
+    }
+
+    #[test]
+    fn health_url_format() {
+        let cfg = ServiceConfig::default();
+        let svc = cfg.by_name("myjira").unwrap();
+        assert_eq!(cfg.health_url(svc), "http://192.168.1.66:3001/healthz");
+    }
+
+    #[test]
+    fn crowd_is_idp_no_oidc() {
+        let cfg = ServiceConfig::default();
+        let crowd = cfg.by_name("mycrowd").unwrap();
+        assert!(!crowd.has_oidc);
+        assert!(crowd.has_api);
+        assert!(crowd.has_i18n);
+    }
+
+    #[test]
+    fn all_services_have_unique_ports() {
+        let cfg = ServiceConfig::default();
+        let mut ports: Vec<u16> = cfg.services.iter().map(|s| s.port).collect();
+        ports.sort();
+        ports.dedup();
+        assert_eq!(ports.len(), cfg.services.len());
+    }
+
+    #[test]
+    fn all_services_have_domains() {
+        let cfg = ServiceConfig::default();
+        for svc in &cfg.services {
+            assert!(svc.domain.ends_with(".home.local"), "{} has no home.local domain", svc.name);
+        }
+    }
+
+    #[test]
+    fn all_services_have_display_names() {
+        let cfg = ServiceConfig::default();
+        for svc in &cfg.services {
+            assert!(!svc.display_name.is_empty(), "{} has no display_name", svc.name);
+        }
+    }
+
+    #[test]
+    fn service_clone_works() {
+        let cfg = ServiceConfig::default();
+        let svc = cfg.by_name("myjira").unwrap().clone();
+        assert_eq!(svc.name, "myjira");
+    }
+}

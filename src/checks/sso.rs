@@ -208,3 +208,80 @@ pub async fn run_all(config: &ServiceConfig) -> Vec<TestResult> {
 
     results
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::checks::Status;
+    use super::*;
+    use crate::config::ServiceConfig;
+
+    #[tokio::test]
+    async fn crowd_discovery_pass() {
+        let cfg = ServiceConfig::default();
+        let r = check_crowd_discovery(&cfg).await;
+        assert_eq!(r.status, Status::Pass);
+        assert!(r.name.contains("discovery"));
+    }
+
+    #[tokio::test]
+    async fn crowd_jwks_pass() {
+        let cfg = ServiceConfig::default();
+        let r = check_crowd_jwks(&cfg).await;
+        assert_eq!(r.status, Status::Pass);
+        assert!(r.fix_hint.is_some());
+    }
+
+    #[tokio::test]
+    async fn crowd_login_pass() {
+        let cfg = ServiceConfig::default();
+        let r = check_crowd_login(&cfg).await;
+        assert_eq!(r.status, Status::Pass);
+    }
+
+    #[tokio::test]
+    async fn crowd_authorize_error_handling() {
+        let cfg = ServiceConfig::default();
+        let r = check_oidc_authorize(&cfg).await;
+        // Should pass — Crowd correctly rejects invalid client_id
+        assert_eq!(r.status, Status::Pass);
+    }
+
+    #[tokio::test]
+    async fn sso_login_button_on_oidc_services() {
+        let cfg = ServiceConfig::default();
+        // Test a few OIDC-enabled services
+        for name in &["myjira", "mybitbucket", "myportal"] {
+            let svc = cfg.by_name(name).unwrap();
+            let r = check_sso_login_button(svc, &cfg).await;
+            assert_eq!(r.status, Status::Pass, "{} should have SSO login button", name);
+        }
+    }
+
+    #[tokio::test]
+    async fn sso_login_button_on_crowd() {
+        let cfg = ServiceConfig::default();
+        let crowd = cfg.by_name("mycrowd").unwrap();
+        // Crowd is the IdP, not an OIDC client — skip
+        // (has_oidc is false, so it won't be checked in run_all)
+        assert!(!crowd.has_oidc);
+    }
+
+    #[tokio::test]
+    async fn run_all_returns_correct_count() {
+        let cfg = ServiceConfig::default();
+        let results = run_all(&cfg).await;
+        // 4 Crowd checks + 26 OIDC services × 1 check = 30
+        assert_eq!(results.len(), 30);
+    }
+
+    #[tokio::test]
+    async fn run_all_crowd_checks_pass() {
+        let cfg = ServiceConfig::default();
+        let results = run_all(&cfg).await;
+        let crowd_results: Vec<_> = results.iter().filter(|r| r.name.contains("Crowd")).collect();
+        assert_eq!(crowd_results.len(), 4);
+        for r in crowd_results {
+            assert_eq!(r.status, Status::Pass, "{} failed", r.name);
+        }
+    }
+}

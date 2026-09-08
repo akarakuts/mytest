@@ -106,3 +106,116 @@ impl TestResult {
         self
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pass_creates_passing_result() {
+        let r = TestResult::pass("test");
+        assert_eq!(r.status, Status::Pass);
+        assert_eq!(r.name, "test");
+        assert!(r.detail.is_none());
+        assert_eq!(r.duration_ms, 0);
+        assert!(r.fix_hint.is_none());
+    }
+
+    #[test]
+    fn fail_creates_failing_result() {
+        let r = TestResult::fail("test", "broken");
+        assert_eq!(r.status, Status::Fail);
+        assert_eq!(r.detail.as_deref(), Some("broken"));
+    }
+
+    #[test]
+    fn warn_creates_warning_result() {
+        let r = TestResult::warn("test", "heads up");
+        assert_eq!(r.status, Status::Warn);
+        assert_eq!(r.detail.as_deref(), Some("heads up"));
+    }
+
+    #[test]
+    fn skip_creates_skipped_result() {
+        let r = TestResult::skip("test", "not applicable");
+        assert_eq!(r.status, Status::Skip);
+        assert_eq!(r.detail.as_deref(), Some("not applicable"));
+    }
+
+    #[test]
+    fn category_sets_category() {
+        let r = TestResult::pass("t").category(Category::Sso);
+        assert_eq!(r.category, Category::Sso);
+
+        let r = TestResult::pass("t").category(Category::Ui);
+        assert_eq!(r.category, Category::Ui);
+
+        let r = TestResult::pass("t").category(Category::I18n);
+        assert_eq!(r.category, Category::I18n);
+
+        let r = TestResult::pass("t").category(Category::Integration);
+        assert_eq!(r.category, Category::Integration);
+    }
+
+    #[test]
+    fn fix_hint_sets_hint() {
+        let r = TestResult::fail("t", "d").fix_hint("do this");
+        assert_eq!(r.fix_hint.as_deref(), Some("do this"));
+    }
+
+    #[test]
+    fn with_duration_sets_duration() {
+        let r = TestResult::pass("t").with_duration(42);
+        assert_eq!(r.duration_ms, 42);
+    }
+
+    #[test]
+    fn builder_chaining() {
+        let r = TestResult::warn("name", "detail")
+            .category(Category::I18n)
+            .fix_hint("hint")
+            .with_duration(100);
+        assert_eq!(r.status, Status::Warn);
+        assert_eq!(r.category, Category::I18n);
+        assert_eq!(r.fix_hint.as_deref(), Some("hint"));
+        assert_eq!(r.duration_ms, 100);
+    }
+
+    #[test]
+    fn category_display() {
+        assert_eq!(format!("{}", Category::Health), "Health");
+        assert_eq!(format!("{}", Category::Sso), "SSO");
+        assert_eq!(format!("{}", Category::Ui), "UI/UX");
+        assert_eq!(format!("{}", Category::I18n), "i18n");
+        assert_eq!(format!("{}", Category::Integration), "Integration");
+    }
+
+    #[test]
+    fn status_equality() {
+        assert_eq!(Status::Pass, Status::Pass);
+        assert_ne!(Status::Pass, Status::Fail);
+        assert_ne!(Status::Warn, Status::Skip);
+    }
+
+    #[test]
+    fn category_equality() {
+        assert_eq!(Category::Health, Category::Health);
+        assert_ne!(Category::Health, Category::Sso);
+    }
+
+    #[test]
+    fn test_result_clone() {
+        let r = TestResult::pass("t").category(Category::Ui).fix_hint("h");
+        let r2 = r.clone();
+        assert_eq!(r2.name, "t");
+        assert_eq!(r2.category, Category::Ui);
+    }
+
+    #[test]
+    fn test_result_debug() {
+        let r = TestResult::pass("t");
+        let dbg = format!("{:?}", r);
+        assert!(dbg.contains("TestResult"));
+        assert!(dbg.contains("Pass"));
+    }
+}

@@ -191,3 +191,147 @@ fn print_result(r: &checks::TestResult) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn print_result_does_not_panic_for_pass() {
+        let r = checks::TestResult::pass("test pass");
+        print_result(&r);
+    }
+
+    #[test]
+    fn print_result_does_not_panic_for_fail() {
+        let r = checks::TestResult::fail("test fail", "something broke");
+        print_result(&r);
+    }
+
+    #[test]
+    fn print_result_does_not_panic_for_warn() {
+        let r = checks::TestResult::warn("test warn", "heads up");
+        print_result(&r);
+    }
+
+    #[test]
+    fn print_result_does_not_panic_for_skip() {
+        let r = checks::TestResult::skip("test skip", "not applicable");
+        print_result(&r);
+    }
+
+    #[test]
+    fn print_result_with_duration() {
+        let r = checks::TestResult::pass("fast").with_duration(42);
+        print_result(&r);
+    }
+
+    #[test]
+    fn print_result_fail_with_multiline_detail() {
+        let r = checks::TestResult::fail("multi", "line1\nline2\nline3");
+        print_result(&r);
+    }
+
+    #[test]
+    fn cli_parses_run_command() {
+        let cli = Cli::parse_from(["mytest", "run"]);
+        match cli.command {
+            Commands::Run { health_only, sso_only, ui_only, i18n_only, output } => {
+                assert!(!health_only);
+                assert!(!sso_only);
+                assert!(!ui_only);
+                assert!(!i18n_only);
+                assert_eq!(output, "reports");
+            }
+            _ => panic!("Expected Run command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_run_health_only() {
+        let cli = Cli::parse_from(["mytest", "run", "--health-only"]);
+        match cli.command {
+            Commands::Run { health_only, .. } => assert!(health_only),
+            _ => panic!("Expected Run command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_run_sso_only() {
+        let cli = Cli::parse_from(["mytest", "run", "--sso-only"]);
+        match cli.command {
+            Commands::Run { sso_only, .. } => assert!(sso_only),
+            _ => panic!("Expected Run command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_run_ui_only() {
+        let cli = Cli::parse_from(["mytest", "run", "--ui-only"]);
+        match cli.command {
+            Commands::Run { ui_only, .. } => assert!(ui_only),
+            _ => panic!("Expected Run command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_run_i18n_only() {
+        let cli = Cli::parse_from(["mytest", "run", "--i18n-only"]);
+        match cli.command {
+            Commands::Run { i18n_only, .. } => assert!(i18n_only),
+            _ => panic!("Expected Run command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_run_custom_output() {
+        let cli = Cli::parse_from(["mytest", "run", "--output", "/tmp/reports"]);
+        match cli.command {
+            Commands::Run { output, .. } => assert_eq!(output, "/tmp/reports"),
+            _ => panic!("Expected Run command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_status_command() {
+        let cli = Cli::parse_from(["mytest", "status"]);
+        match cli.command {
+            Commands::Status => {}
+            _ => panic!("Expected Status command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_plan_command() {
+        let cli = Cli::parse_from(["mytest", "plan"]);
+        match cli.command {
+            Commands::Plan { report, output } => {
+                assert!(report.is_none());
+                assert_eq!(output, "reports/fix-plan.md");
+            }
+            _ => panic!("Expected Plan command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_plan_with_report() {
+        let cli = Cli::parse_from(["mytest", "plan", "--report", "/tmp/report.md"]);
+        match cli.command {
+            Commands::Plan { report, .. } => {
+                assert_eq!(report.unwrap(), "/tmp/report.md");
+            }
+            _ => panic!("Expected Plan command"),
+        }
+    }
+
+    #[test]
+    fn cli_parses_plan_with_output() {
+        let cli = Cli::parse_from(["mytest", "plan", "--output", "/tmp/plan.md"]);
+        match cli.command {
+            Commands::Plan { output, .. } => {
+                assert_eq!(output, "/tmp/plan.md");
+            }
+            _ => panic!("Expected Plan command"),
+        }
+    }
+}
