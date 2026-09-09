@@ -540,9 +540,9 @@ async fn check_app_shell(svc: &crate::config::Service, config: &ServiceConfig) -
 async fn check_sidebar_layout(svc: &crate::config::Service, config: &ServiceConfig) -> TestResult {
     // Sidebar-based apps: myrovo, mychat, mytrello, mycompass, etc.
     let sidebar_apps = [
-        "myrovo", "myopsgenie", "myservicedesk", "mycompass", "mycalendars",
-        "mycrm", "myanalytics", "mymarketplace", "myalign", "mynotifications",
-        "myatlas", "myrunbook",
+        "myopsgenie", "myservicedesk", "mycompass", "mycrm",
+        "mynotifications", "mymarketplace", "myalign", "myrunbook",
+        "myatlas", "myrovo", "myanalytics", "mycalendars",
     ];
     if !sidebar_apps.contains(&svc.name) {
         return TestResult::skip(
@@ -721,6 +721,128 @@ async fn check_unstyled_classes(svc: &crate::config::Service, config: &ServiceCo
     }
 }
 
+/// Проверить наличие новых страниц Phase 6.
+async fn check_phase6_pages(svc: &crate::config::Service, config: &ServiceConfig) -> TestResult {
+    let client = http_client();
+
+    // Phase 6 routes per service
+    let routes: &[(&str, &[&str])] = &[
+        ("myjira", &["/filters"]),
+        ("myrovo", &["/settings", "/export"]),
+        ("mychat", &["/search", "/files"]),
+        ("mytrello", &["/activity"]),
+        ("mysearch", &["/saved-searches"]),
+    ];
+
+    let Some((_, expected_routes)) = routes.iter().find(|(name, _)| *name == svc.name) else {
+        return TestResult::skip(format!("{} Phase 6 pages", svc.name), "No Phase 6 pages for this service")
+            .category(Category::Ui);
+    };
+
+    let base = config.base_url_http(svc);
+    let mut passed = 0;
+    let mut failed_routes = Vec::new();
+
+    for route in *expected_routes {
+        let url = format!("{}{}", base, route);
+        match client.get(&url).send().await {
+            Ok(resp) if resp.status().is_success() => passed += 1,
+            Ok(resp) => failed_routes.push(format!("{} (HTTP {})", route, resp.status().as_u16())),
+            Err(e) => failed_routes.push(format!("{} (error: {})", route, e)),
+        }
+    }
+
+    if failed_routes.is_empty() {
+        TestResult::pass(format!("{} Phase 6 pages ({}/{})", svc.name, passed, expected_routes.len()))
+            .category(Category::Ui)
+    } else {
+        TestResult::warn(
+            format!("{} Phase 6 pages", svc.name),
+            format!("Failed: {}", failed_routes.join(", ")),
+        )
+        .category(Category::Ui)
+    }
+}
+
+/// Проверить наличие компонентов EmptyState и Loading в исходном коде.
+async fn check_shared_components(svc: &crate::config::Service, _config: &ServiceConfig) -> TestResult {
+    let shared_path = format!("/home/akarakuts/projects/myatlassian/{}/src/components/shared.rs", svc.name);
+    let content = std::fs::read_to_string(&shared_path).unwrap_or_default();
+
+    let has_empty = content.contains("EmptyState") || content.contains("fn empty_state");
+    let has_loading = content.contains("Loading") || content.contains("fn loading");
+
+    if has_empty && has_loading {
+        TestResult::pass(format!("{} shared components (EmptyState+Loading)", svc.name))
+            .category(Category::Ui)
+    } else if has_empty {
+        TestResult::pass(format!("{} shared components (EmptyState)", svc.name))
+            .category(Category::Ui)
+            .fix_hint("Add Loading component to shared.rs")
+    } else {
+        TestResult::warn(
+            format!("{} shared components", svc.name),
+            "Missing EmptyState and/or Loading in shared.rs",
+        )
+        .category(Category::Ui)
+        .fix_hint("Add EmptyState and Loading to src/components/shared.rs")
+    }
+}
+
+/// Проверить использование .table-cards для мобильной адаптации таблиц.
+async fn check_table_cards(svc: &crate::config::Service, config: &ServiceConfig) -> TestResult {
+    let url = config.base_url_http(svc);
+    let client = http_client();
+
+    match client.get(&url).send().await {
+        Ok(resp) => {
+            let body = resp.text().await.unwrap_or_default();
+            let is_wasm_only = body.contains(".wasm") && body.len() < 5000;
+
+            if is_wasm_only {
+                return TestResult::skip(format!("{} table-cards", svc.name), "WASM-only")
+                    .category(Category::Ui);
+            }
+
+            // Check CSS file for table-cards class
+            let css_path = format!("/home/akarakuts/projects/myatlassian/{}/styles/main.css", svc.name);
+            let css = std::fs::read_to_string(&css_path).unwrap_or_default();
+            let has_table_cards_css = css.contains("table-cards");
+
+            // Check source for table-cards usage
+            let src_path = format!("/home/akarakuts/projects/myatlassian/{}/src", svc.name);
+            let mut has_usage = false;
+            if let Ok(entries) = std::fs::read_dir(&src_path) {
+                for entry in entries.flatten() {
+                    if let Ok(content) = std::fs::read_to_string(entry.path()) {
+                        if content.contains("table-cards") {
+                            has_usage = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if has_table_cards_css && has_usage {
+                TestResult::pass(format!("{} table-cards", svc.name)).category(Category::Ui)
+            } else if has_table_cards_css {
+                TestResult::pass(format!("{} table-cards (CSS ready)", svc.name))
+                    .category(Category::Ui)
+                    .fix_hint("Add .table-cards class to table-wrap divs in Rust code")
+            } else {
+                TestResult::warn(
+                    format!("{} table-cards", svc.name),
+                    "No .table-cards class found",
+                )
+                .category(Category::Ui)
+                .fix_hint("Add table-cards to table-wrap divs for mobile responsive tables")
+            }
+        }
+        Err(_) => TestResult::skip(format!("{} table-cards", svc.name), "Service unreachable")
+            .category(Category::Ui),
+    }
+}
+
 /// Запустить все UI checks.
 pub async fn run_all(config: &ServiceConfig) -> Vec<TestResult> {
     let mut results = Vec::new();
@@ -742,6 +864,9 @@ pub async fn run_all(config: &ServiceConfig) -> Vec<TestResult> {
         results.push(check_mobile_hamburger(svc, config).await);
         results.push(check_touch_targets(svc, config).await);
         results.push(check_unstyled_classes(svc, config).await);
+        results.push(check_phase6_pages(svc, config).await);
+        results.push(check_shared_components(svc, config).await);
+        results.push(check_table_cards(svc, config).await);
     }
 
     results
@@ -860,8 +985,8 @@ mod tests {
     async fn run_all_returns_correct_count() {
         let cfg = ServiceConfig::default();
         let results = run_all(&cfg).await;
-        // 27 services × 16 checks = 432
-        assert_eq!(results.len(), 432);
+        // 27 services × 19 checks = 513
+        assert_eq!(results.len(), 513);
     }
 
     #[tokio::test]
