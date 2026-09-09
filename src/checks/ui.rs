@@ -540,8 +540,9 @@ async fn check_app_shell(svc: &crate::config::Service, config: &ServiceConfig) -
 async fn check_sidebar_layout(svc: &crate::config::Service, config: &ServiceConfig) -> TestResult {
     // Sidebar-based apps: myrovo, mychat, mytrello, mycompass, etc.
     let sidebar_apps = [
-        "myrovo", "mychat", "mytrello", "mycompass", "myflow", "myjam",
-        "myrunbook", "mytimesheets", "myforms", "mydiscovery", "myatlas",
+        "myrovo", "myopsgenie", "myservicedesk", "mycompass", "mycalendars",
+        "mycrm", "myanalytics", "mymarketplace", "myalign", "mynotifications",
+        "myatlas", "myrunbook",
     ];
     if !sidebar_apps.contains(&svc.name) {
         return TestResult::skip(
@@ -654,9 +655,12 @@ async fn check_unstyled_classes(svc: &crate::config::Service, config: &ServiceCo
     let url = config.base_url_http(svc);
     let client = http_client();
 
-    // Load suite.css from disk for class reference
+    // Load suite.css + app-specific CSS from disk for class reference
     let suite_css_path = "/home/akarakuts/projects/myatlassian/docs/design/suite.css";
+    let app_css_path = format!("/home/akarakuts/projects/myatlassian/{}/styles/main.css", svc.name);
     let suite_css = std::fs::read_to_string(suite_css_path).unwrap_or_default();
+    let app_css = std::fs::read_to_string(&app_css_path).unwrap_or_default();
+    let all_css = format!("{}\n{}", suite_css, app_css);
 
     match client.get(&url).send().await {
         Ok(resp) => {
@@ -688,7 +692,7 @@ async fn check_unstyled_classes(svc: &crate::config::Service, config: &ServiceCo
             let unstyled: Vec<&String> = class_counts.keys()
                 .filter(|cls| {
                     let dot_cls = format!(".{}", cls);
-                    !suite_css.contains(&dot_cls) && !suite_css.contains(cls.as_str())
+                    !all_css.contains(&dot_cls) && !all_css.contains(cls.as_str())
                 })
                 .collect();
             let unstyled_count = unstyled.len();
