@@ -505,6 +505,218 @@ async fn check_animations(svc: &crate::config::Service, config: &ServiceConfig) 
     }
 }
 
+/// Проверить наличие `.app-shell` класса (обёртка всего приложения).
+async fn check_app_shell(svc: &crate::config::Service, config: &ServiceConfig) -> TestResult {
+    let url = config.base_url_http(svc);
+    let client = http_client();
+
+    match client.get(&url).send().await {
+        Ok(resp) => {
+            let body = resp.text().await.unwrap_or_default();
+            let has_app_shell = body.contains("app-shell") || body.contains("app_layout") || body.contains("app-layout");
+            let is_wasm_only = body.contains(".wasm") && body.len() < 5000;
+
+            if has_app_shell {
+                TestResult::pass(format!("{} app-shell", svc.name)).category(Category::Ui)
+            } else if is_wasm_only {
+                TestResult::pass(format!("{} app-shell (WASM)", svc.name))
+                    .category(Category::Ui)
+                    .fix_hint("App shell rendered by WASM hydration")
+            } else {
+                TestResult::warn(
+                    format!("{} app-shell", svc.name),
+                    "No .app-shell class found in HTML",
+                )
+                .category(Category::Ui)
+                .fix_hint("Wrap the root layout in a div with class=\"app-shell\"")
+            }
+        }
+        Err(_) => TestResult::skip(format!("{} app-shell", svc.name), "Service unreachable")
+            .category(Category::Ui),
+    }
+}
+
+/// Проверить `.layout-with-sidebar` для sidebar-приложений.
+async fn check_sidebar_layout(svc: &crate::config::Service, config: &ServiceConfig) -> TestResult {
+    // Sidebar-based apps: myrovo, mychat, mytrello, mycompass, etc.
+    let sidebar_apps = [
+        "myrovo", "mychat", "mytrello", "mycompass", "myflow", "myjam",
+        "myrunbook", "mytimesheets", "myforms", "mydiscovery", "myatlas",
+    ];
+    if !sidebar_apps.contains(&svc.name) {
+        return TestResult::skip(
+            format!("{} sidebar layout", svc.name),
+            "Not a sidebar-based app",
+        )
+        .category(Category::Ui);
+    }
+
+    let url = config.base_url_http(svc);
+    let client = http_client();
+
+    match client.get(&url).send().await {
+        Ok(resp) => {
+            let body = resp.text().await.unwrap_or_default();
+            let has_sidebar = body.contains("layout-with-sidebar") || body.contains("sidebar");
+            let is_wasm_only = body.contains(".wasm") && body.len() < 5000;
+
+            if has_sidebar {
+                TestResult::pass(format!("{} sidebar layout", svc.name)).category(Category::Ui)
+            } else if is_wasm_only {
+                TestResult::pass(format!("{} sidebar layout (WASM)", svc.name))
+                    .category(Category::Ui)
+                    .fix_hint("Sidebar layout rendered by WASM hydration")
+            } else {
+                TestResult::warn(
+                    format!("{} sidebar layout", svc.name),
+                    "Expected .layout-with-sidebar for sidebar-based app",
+                )
+                .category(Category::Ui)
+                .fix_hint("Use .layout-with-sidebar wrapper for sidebar apps")
+            }
+        }
+        Err(_) => TestResult::skip(format!("{} sidebar layout", svc.name), "Service unreachable")
+            .category(Category::Ui),
+    }
+}
+
+/// Проверить наличие mobile hamburger / menu-toggle.
+async fn check_mobile_hamburger(svc: &crate::config::Service, config: &ServiceConfig) -> TestResult {
+    let url = config.base_url_http(svc);
+    let client = http_client();
+
+    match client.get(&url).send().await {
+        Ok(resp) => {
+            let body = resp.text().await.unwrap_or_default();
+            let has_hamburger = body.contains("menu-toggle")
+                || body.contains("nav-hamburger")
+                || body.contains("hamburger")
+                || body.contains("mobile-menu");
+            let is_wasm_only = body.contains(".wasm") && body.len() < 5000;
+
+            if has_hamburger {
+                TestResult::pass(format!("{} mobile hamburger", svc.name)).category(Category::Ui)
+            } else if is_wasm_only {
+                TestResult::pass(format!("{} mobile hamburger (WASM)", svc.name))
+                    .category(Category::Ui)
+                    .fix_hint("Mobile nav toggle rendered by WASM hydration")
+            } else {
+                TestResult::warn(
+                    format!("{} mobile hamburger", svc.name),
+                    "No mobile nav toggle found",
+                )
+                .category(Category::Ui)
+                .fix_hint("Add menu-toggle or nav-hamburger element for mobile navigation")
+            }
+        }
+        Err(_) => TestResult::skip(format!("{} mobile hamburger", svc.name), "Service unreachable")
+            .category(Category::Ui),
+    }
+}
+
+/// Проверить наличие 44px min-height на мобильных кнопках (CSS check).
+async fn check_touch_targets(svc: &crate::config::Service, config: &ServiceConfig) -> TestResult {
+    let css_url = format!("{}/pkg/{}.css", config.base_url_http(svc), svc.name);
+    let client = http_client();
+
+    let mut body = match client.get(&css_url).send().await {
+        Ok(resp) if resp.status().is_success() => resp.text().await.unwrap_or_default(),
+        _ => String::new(),
+    };
+    if !body.contains("min-height") {
+        let css_path = format!("/home/akarakuts/projects/myatlassian/{}/styles/main.css", svc.name);
+        if let Ok(content) = std::fs::read_to_string(&css_path) { body = content; }
+    }
+    if body.is_empty() {
+        return TestResult::skip(format!("{} touch targets", svc.name), "CSS not available")
+            .category(Category::Ui);
+    }
+
+    let has_touch_targets = body.contains("min-height: 44px")
+        || body.contains("min-height:44px")
+        || body.contains("min-height: 48px")
+        || body.contains("min-height:48px");
+
+    if has_touch_targets {
+        TestResult::pass(format!("{} touch targets", svc.name)).category(Category::Ui)
+    } else {
+        TestResult::warn(
+            format!("{} touch targets", svc.name),
+            "No 44px min-height for mobile touch targets found in CSS",
+        )
+        .category(Category::Ui)
+        .fix_hint("Add @media (max-width: 768px) { button, a { min-height: 44px; } } to suite.css")
+    }
+}
+
+/// Подсчитать CSS-классы в HTML, которых нет в suite.css (unstyled classes).
+async fn check_unstyled_classes(svc: &crate::config::Service, config: &ServiceConfig) -> TestResult {
+    let url = config.base_url_http(svc);
+    let client = http_client();
+
+    // Load suite.css from disk for class reference
+    let suite_css_path = "/home/akarakuts/projects/myatlassian/docs/design/suite.css";
+    let suite_css = std::fs::read_to_string(suite_css_path).unwrap_or_default();
+
+    match client.get(&url).send().await {
+        Ok(resp) => {
+            let body = resp.text().await.unwrap_or_default();
+            let is_wasm_only = body.contains(".wasm") && body.len() < 5000;
+
+            if is_wasm_only {
+                return TestResult::skip(format!("{} unstyled classes", svc.name), "WASM-only SSR shell")
+                    .category(Category::Ui);
+            }
+
+            let doc = Html::parse_document(&body);
+            let all_selector = Selector::parse("*").unwrap();
+            let mut class_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+
+            for el in doc.select(&all_selector) {
+                if let Some(class_attr) = el.value().attr("class") {
+                    for cls in class_attr.split_whitespace() {
+                        // Skip Leptos/hydration internal classes and numeric IDs
+                        if cls.starts_with("leptos-") || cls.starts_with("data-") || cls.starts_with("__") {
+                            continue;
+                        }
+                        *class_counts.entry(cls.to_string()).or_insert(0) += 1;
+                    }
+                }
+            }
+
+            let total_classes = class_counts.len();
+            let unstyled: Vec<&String> = class_counts.keys()
+                .filter(|cls| {
+                    let dot_cls = format!(".{}", cls);
+                    !suite_css.contains(&dot_cls) && !suite_css.contains(cls.as_str())
+                })
+                .collect();
+            let unstyled_count = unstyled.len();
+
+            if total_classes == 0 {
+                TestResult::skip(format!("{} unstyled classes", svc.name), "No classes found in HTML")
+                    .category(Category::Ui)
+            } else if unstyled_count == 0 {
+                TestResult::pass(format!("{} unstyled classes (0/{})", svc.name, total_classes))
+                    .category(Category::Ui)
+            } else if unstyled_count <= total_classes / 3 {
+                TestResult::pass(format!("{} unstyled classes ({}/{})", svc.name, unstyled_count, total_classes))
+                    .category(Category::Ui)
+                    .fix_hint(format!("{} classes not in suite.css (may be app-specific)", unstyled_count))
+            } else {
+                TestResult::warn(
+                    format!("{} unstyled classes", svc.name),
+                    format!("{}/{} classes not found in suite.css", unstyled_count, total_classes),
+                )
+                .category(Category::Ui)
+                .fix_hint("Many classes may need adding to suite.css or are app-specific")
+            }
+        }
+        Err(_) => TestResult::skip(format!("{} unstyled classes", svc.name), "Service unreachable")
+            .category(Category::Ui),
+    }
+}
+
 /// Запустить все UI checks.
 pub async fn run_all(config: &ServiceConfig) -> Vec<TestResult> {
     let mut results = Vec::new();
@@ -521,6 +733,11 @@ pub async fn run_all(config: &ServiceConfig) -> Vec<TestResult> {
         results.push(check_ux_css_patterns(svc, config).await);
         results.push(check_responsive_breakpoints(svc, config).await);
         results.push(check_animations(svc, config).await);
+        results.push(check_app_shell(svc, config).await);
+        results.push(check_sidebar_layout(svc, config).await);
+        results.push(check_mobile_hamburger(svc, config).await);
+        results.push(check_touch_targets(svc, config).await);
+        results.push(check_unstyled_classes(svc, config).await);
     }
 
     results
@@ -639,8 +856,8 @@ mod tests {
     async fn run_all_returns_correct_count() {
         let cfg = ServiceConfig::default();
         let results = run_all(&cfg).await;
-        // 27 services × 11 checks = 297
-        assert_eq!(results.len(), 297);
+        // 27 services × 16 checks = 432
+        assert_eq!(results.len(), 432);
     }
 
     #[tokio::test]
@@ -705,6 +922,83 @@ mod tests {
             port: 19999, has_oidc: false, has_api: false, has_i18n: false, comment_lang: "en",
         };
         let r = check_animations(&svc, &cfg).await;
+        assert_eq!(r.status, Status::Skip);
+    }
+
+    #[tokio::test]
+    async fn app_shell_pass_for_live_service() {
+        let cfg = ServiceConfig::default();
+        let svc = cfg.by_name("myjira").unwrap();
+        let r = check_app_shell(svc, &cfg).await;
+        assert_eq!(r.status, Status::Pass);
+    }
+
+    #[tokio::test]
+    async fn sidebar_layout_pass_for_sidebar_app() {
+        let cfg = ServiceConfig::default();
+        let svc = cfg.by_name("myrovo").unwrap();
+        let r = check_sidebar_layout(svc, &cfg).await;
+        assert_eq!(r.status, Status::Pass);
+    }
+
+    #[tokio::test]
+    async fn sidebar_layout_skip_for_non_sidebar_app() {
+        let cfg = ServiceConfig::default();
+        let svc = cfg.by_name("myjira").unwrap();
+        let r = check_sidebar_layout(svc, &cfg).await;
+        assert_eq!(r.status, Status::Skip);
+    }
+
+    #[tokio::test]
+    async fn mobile_hamburger_pass_for_live_service() {
+        let cfg = ServiceConfig::default();
+        // myrovo has menu-toggle in SSR HTML
+        let svc = cfg.by_name("myrovo").unwrap();
+        let r = check_mobile_hamburger(svc, &cfg).await;
+        assert_eq!(r.status, Status::Pass);
+    }
+
+    #[tokio::test]
+    async fn app_shell_skip_for_dead_service() {
+        let cfg = ServiceConfig::default();
+        let svc = crate::config::Service {
+            name: "dead", display_name: "Dead", domain: "dead.home.local",
+            port: 19999, has_oidc: false, has_api: false, has_i18n: false, comment_lang: "en",
+        };
+        let r = check_app_shell(&svc, &cfg).await;
+        assert_eq!(r.status, Status::Skip);
+    }
+
+    #[tokio::test]
+    async fn mobile_hamburger_skip_for_dead_service() {
+        let cfg = ServiceConfig::default();
+        let svc = crate::config::Service {
+            name: "dead", display_name: "Dead", domain: "dead.home.local",
+            port: 19999, has_oidc: false, has_api: false, has_i18n: false, comment_lang: "en",
+        };
+        let r = check_mobile_hamburger(&svc, &cfg).await;
+        assert_eq!(r.status, Status::Skip);
+    }
+
+    #[tokio::test]
+    async fn touch_targets_skip_for_dead_service() {
+        let cfg = ServiceConfig::default();
+        let svc = crate::config::Service {
+            name: "dead", display_name: "Dead", domain: "dead.home.local",
+            port: 19999, has_oidc: false, has_api: false, has_i18n: false, comment_lang: "en",
+        };
+        let r = check_touch_targets(&svc, &cfg).await;
+        assert_eq!(r.status, Status::Skip);
+    }
+
+    #[tokio::test]
+    async fn unstyled_classes_skip_for_dead_service() {
+        let cfg = ServiceConfig::default();
+        let svc = crate::config::Service {
+            name: "dead", display_name: "Dead", domain: "dead.home.local",
+            port: 19999, has_oidc: false, has_api: false, has_i18n: false, comment_lang: "en",
+        };
+        let r = check_unstyled_classes(&svc, &cfg).await;
         assert_eq!(r.status, Status::Skip);
     }
 }
