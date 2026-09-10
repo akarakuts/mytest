@@ -121,19 +121,40 @@ async fn main() -> anyhow::Result<()> {
                 }
                 results.extend(integration);
 
-                println!("\n{}", "═══ Server Function Checks ═══".cyan().bold());
+                println!("\n{}", "═══ Server Function Checks (Legacy) ═══".cyan().bold());
                 let server_fn_results = checks::server_functions::check_server_function_endpoints(&config).await;
                 for r in &server_fn_results {
                     print_result(r);
                 }
                 results.extend(server_fn_results);
 
-                println!("\n{}", "═══ Feature Page Checks ═══".cyan().bold());
+                println!("\n{}", "═══ Feature Page Checks (Legacy) ═══".cyan().bold());
                 let page_results = checks::server_functions::check_new_feature_pages(&config).await;
                 for r in &page_results {
                     print_result(r);
                 }
                 results.extend(page_results);
+
+                println!("\n{}", "═══ Comprehensive Server Function Tests ═══".cyan().bold());
+                let all_server_fn_results = checks::server_functions_all::test_all_server_functions(&config).await;
+                for r in &all_server_fn_results {
+                    print_result(r);
+                }
+                results.extend(all_server_fn_results);
+
+                println!("\n{}", "═══ Comprehensive Feature Page Tests ═══".cyan().bold());
+                let all_page_results = checks::server_functions_all::test_all_feature_pages(&config).await;
+                for r in &all_page_results {
+                    print_result(r);
+                }
+                results.extend(all_page_results);
+
+                println!("\n{}", "═══ Widget Endpoint Tests ═══".cyan().bold());
+                let widget_results = checks::server_functions_all::test_all_widgets(&config).await;
+                for r in &widget_results {
+                    print_result(r);
+                }
+                results.extend(widget_results);
             }
 
             // Summary
