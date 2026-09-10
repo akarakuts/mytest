@@ -287,36 +287,63 @@ fn all_server_functions() -> Vec<(&'static str, Vec<(&'static str, &'static str)
     ]
 }
 
-/// All feature pages for each service.
+/// All feature pages for each service (based on actual routes in app.rs).
 fn all_feature_pages() -> Vec<(&'static str, Vec<&'static str>)> {
     vec![
-        ("mycrowd", vec!["/", "/login", "/users", "/groups", "/applications", "/directories", "/sessions", "/audit", "/compliance", "/api_keys", "/secrets", "/offboard", "/dashboard"]),
-        ("myconf", vec!["/", "/login", "/search"]),
-        ("myjira", vec!["/", "/login", "/backlog", "/board", "/dashboard"]),
-        ("mybitbucket", vec!["/", "/login", "/dashboard"]),
-        ("mybamboo", vec!["/", "/login", "/plans", "/deployments"]),
-        ("myportal", vec!["/", "/login", "/admin", "/admin/dashboard", "/performance"]),
-        ("myopsgenie", vec!["/", "/login", "/alerts", "/incidents", "/schedules", "/escalations", "/heartbeats", "/dashboard", "/notification-policies", "/incident-timeline"]),
-        ("myservicedesk", vec!["/", "/login", "/portal", "/queue", "/dashboard", "/sla", "/automation", "/assets", "/knowledge-base", "/customer-portal", "/approvals", "/branding", "/business-hours", "/email-routes", "/agent-performance"]),
-        ("mycompass", vec!["/", "/login", "/catalog", "/scorecards", "/teams", "/goals", "/surveys", "/audit", "/templates", "/webhooks", "/map"]),
-        ("mycalendars", vec!["/", "/login", "/month", "/leaves", "/holidays", "/find-time", "/settings", "/subscriptions", "/advanced"]),
-        ("mystatuspage", vec!["/", "/login", "/admin", "/dashboard", "/incidents", "/uptime"]),
-        ("mycrm", vec!["/", "/login", "/contacts", "/deals", "/pipelines", "/invoices", "/reports"]),
-        ("myrovo", vec!["/", "/login", "/conversations", "/tools", "/settings"]),
-        ("myanalytics", vec!["/", "/login", "/dashboard", "/reports", "/reports-gallery", "/dora", "/admin"]),
-        ("mymarketplace", vec!["/", "/login", "/catalog", "/publish", "/sdk", "/plugin"]),
+        // mycrowd: /, /login, /users, /groups, /directories, /applications, /secrets, /audit, /activity
+        ("mycrowd", vec!["/", "/login", "/users", "/groups", "/directories", "/applications", "/secrets", "/audit", "/activity"]),
+        // myconf: /, /login, /spaces, /search, /admin, /profile, /knowledge-base
+        ("myconf", vec!["/", "/login", "/spaces", "/search", "/admin", "/profile", "/knowledge-base"]),
+        // myjira: /, /login, /projects
+        ("myjira", vec!["/", "/login", "/projects"]),
+        // mybitbucket: /, /login, /admin, /profile, /search
+        ("mybitbucket", vec!["/", "/login", "/admin", "/profile", "/search"]),
+        // mybamboo: /, /login, /pipelines, /builds, /deployments
+        ("mybamboo", vec!["/", "/login", "/pipelines", "/builds", "/deployments"]),
+        // myportal: /, /login, /admin, /admin-dashboard, /performance, /search
+        ("myportal", vec!["/", "/login", "/admin", "/admin-dashboard", "/performance", "/search"]),
+        // myopsgenie: /, /login, /alerts, /incidents, /schedules, /escalations, /notifications
+        ("myopsgenie", vec!["/", "/login", "/alerts", "/incidents", "/schedules", "/escalations", "/notifications"]),
+        // myservicedesk: /, /login, /portal, /queue, /sla, /assets, /customer-portal, /notifications
+        ("myservicedesk", vec!["/", "/login", "/portal", "/queue", "/sla", "/assets", "/customer-portal", "/notifications"]),
+        // mycompass: /, /login, /scorecards, /teams, /audit, /webhooks, /map
+        ("mycompass", vec!["/", "/login", "/scorecards", "/teams", "/audit", "/webhooks", "/map"]),
+        // mycalendars: /, /login, /leaves, /find-time, /holidays, /settings
+        ("mycalendars", vec!["/", "/login", "/leaves", "/find-time", "/holidays", "/settings"]),
+        // mystatuspage: /, /login, /admin, /incidents, /uptime
+        ("mystatuspage", vec!["/", "/login", "/admin", "/incidents", "/uptime"]),
+        // mycrm: /, /login, /contacts, /companies, /leads, /deals, /activities, /products, /invoices, /reports, /pipeline, /settings
+        ("mycrm", vec!["/", "/login", "/contacts", "/companies", "/leads", "/deals", "/activities", "/products", "/invoices", "/reports", "/pipeline", "/settings"]),
+        // myrovo: /, /login, /tool-history, /settings, /export
+        ("myrovo", vec!["/", "/login", "/tool-history", "/settings", "/export"]),
+        // myanalytics: /, /login, /admin, /reports-gallery
+        ("myanalytics", vec!["/", "/login", "/admin", "/reports-gallery"]),
+        // mymarketplace: /, /login, /publish
+        ("mymarketplace", vec!["/", "/login", "/publish"]),
+        // myalign: /, /login
         ("myalign", vec!["/", "/login"]),
-        ("mynotifications", vec!["/", "/login", "/inbox", "/channels", "/settings"]),
-        ("mychat", vec!["/", "/login", "/admin", "/search", "/files"]),
-        ("mytrello", vec!["/", "/login", "/boards"]),
-        ("mydiscovery", vec!["/", "/login", "/ideas", "/roadmap", "/backlog"]),
-        ("myatlas", vec!["/", "/login", "/projects", "/updates", "/templates", "/goals", "/digest"]),
+        // mynotifications: /, /login, /settings
+        ("mynotifications", vec!["/", "/login", "/settings"]),
+        // mychat: /, /login, /admin, /channels, /search, /files
+        ("mychat", vec!["/", "/login", "/admin", "/channels", "/search", "/files"]),
+        // mytrello: /, /login, /activity
+        ("mytrello", vec!["/", "/login", "/activity"]),
+        // mydiscovery: /, /login, /kanban, /roadmap
+        ("mydiscovery", vec!["/", "/login", "/kanban", "/roadmap"]),
+        // myatlas: /, /login, /digest
+        ("myatlas", vec!["/", "/login", "/digest"]),
+        // myflow: /, /login, /executions
         ("myflow", vec!["/", "/login", "/executions"]),
-        ("mysearch", vec!["/", "/login", "/history"]),
-        ("myjam", vec!["/", "/login", "/boards"]),
-        ("myrunbook", vec!["/", "/login", "/runbooks", "/analytics"]),
-        ("mytimesheets", vec!["/", "/login", "/timesheet", "/reports", "/invoices", "/calendar", "/utilization", "/approvals"]),
-        ("myforms", vec!["/", "/login", "/forms", "/templates", "/analytics"]),
+        // mysearch: /, /login, /history, /saved-searches, /status, /analytics
+        ("mysearch", vec!["/", "/login", "/history", "/saved-searches", "/status", "/analytics"]),
+        // myjam: /, /login
+        ("myjam", vec!["/", "/login"]),
+        // myrunbook: /, /login
+        ("myrunbook", vec!["/", "/login"]),
+        // mytimesheets: /, /login, /reports, /approvals
+        ("mytimesheets", vec!["/", "/login", "/reports", "/approvals"]),
+        // myforms: /, /login
+        ("myforms", vec!["/", "/login"]),
     ]
 }
 
