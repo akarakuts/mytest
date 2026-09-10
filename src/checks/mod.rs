@@ -1,8 +1,9 @@
-//! Модули проверок: health, SSO, UI, i18n, integration.
+//! Модули проверок: health, SSO, UI, i18n, integration, server_functions.
 
 pub mod health;
 pub mod i18n;
 pub mod integration;
+pub mod server_functions;
 pub mod sso;
 pub mod ui;
 

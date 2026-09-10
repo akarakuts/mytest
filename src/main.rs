@@ -120,6 +120,20 @@ async fn main() -> anyhow::Result<()> {
                     print_result(r);
                 }
                 results.extend(integration);
+
+                println!("\n{}", "═══ Server Function Checks ═══".cyan().bold());
+                let server_fn_results = checks::server_functions::check_server_function_endpoints(&config).await;
+                for r in &server_fn_results {
+                    print_result(r);
+                }
+                results.extend(server_fn_results);
+
+                println!("\n{}", "═══ Feature Page Checks ═══".cyan().bold());
+                let page_results = checks::server_functions::check_new_feature_pages(&config).await;
+                for r in &page_results {
+                    print_result(r);
+                }
+                results.extend(page_results);
             }
 
             // Summary
