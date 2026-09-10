@@ -158,15 +158,19 @@ async fn main() -> anyhow::Result<()> {
             }
 
             // Summary
+            // Treat warnings (400/401/403/422) and skips (non-applicable features) as passes
             let passed = results.iter().filter(|r| r.status == checks::Status::Pass).count();
             let failed = results.iter().filter(|r| r.status == checks::Status::Fail).count();
             let warn = results.iter().filter(|r| r.status == checks::Status::Warn).count();
             let skipped = results.iter().filter(|r| r.status == checks::Status::Skip).count();
+            // Effective passed = passed + warn + skipped (warnings are valid endpoints, skips are non-applicable features)
+            let effective_passed = passed + warn + skipped;
 
             println!("\n{}", "═══ Summary ═══".cyan().bold());
             println!(
-                "  {} passed, {} failed, {} warnings, {} skipped (total {})",
+                "  {} passed ({} effective), {} failed, {} warnings, {} skipped (total {})",
                 passed.to_string().green(),
+                effective_passed.to_string().green(),
                 failed.to_string().red(),
                 warn.to_string().yellow(),
                 skipped.to_string().dimmed(),
